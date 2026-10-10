@@ -160,7 +160,6 @@ const HomePage: React.FC = () => {
   const [sn, setSn] = useState<string>("A6G6200360023");
   const [machines, setMachines] = useState<MachineOption[]>([]);
   const [testingVoice, setTestingVoice] = useState<boolean>(false);
-  const [testingOfficeVoice, setTestingOfficeVoice] = useState<boolean>(false);
   const [showCameraModal, setShowCameraModal] = useState<boolean>(false);
 
   // Lokasi Resmi PT. Citi Plumb
@@ -458,42 +457,6 @@ const HomePage: React.FC = () => {
       }
     } finally {
       setTestingVoice(false);
-    }
-  };
-
-  const handleTestAttOfficeVoice = async () => {
-    const toastId = toast.loading(
-      "Menghubungkan ke speaker mesin fisik ATT Office..."
-    );
-    try {
-      setTestingOfficeVoice(true);
-      const res = await axios.post("/api/sensors/test-voice", {
-        sensorId: "4",
-        voiceIndex: 0,
-      });
-
-      if (res.data?.success) {
-        toast.success(
-          'Suara "Terima Kasih" berhasil dibunyikan di mesin ATT Office!',
-          { id: toastId }
-        );
-      } else {
-        toast.error(
-          res.data?.message || "Mesin ATT Office tidak merespon",
-          { id: toastId }
-        );
-      }
-    } catch (err: unknown) {
-      if (axios.isAxiosError(err) && err.response?.data?.message) {
-        toast.error(err.response.data.message, { id: toastId });
-      } else {
-        toast.error(
-          "Gagal menghubungi speaker mesin ATT Office. Pastikan mesin aktif di jaringan.",
-          { id: toastId }
-        );
-      }
-    } finally {
-      setTestingOfficeVoice(false);
     }
   };
 
@@ -941,42 +904,6 @@ const HomePage: React.FC = () => {
                     )}
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* Box Uji Coba Suara Khusus ATT Office */}
-              <div className="rounded-lg border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-7 h-7 rounded-md bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center text-emerald-700 dark:text-emerald-300 shrink-0">
-                    <Volume2
-                      className={`w-4 h-4 ${testingOfficeVoice ? "animate-bounce text-emerald-600 dark:text-emerald-400" : ""}`}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-medium text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5 flex-wrap">
-                      <span>ATT Office</span>
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0 h-4 bg-white dark:bg-zinc-800 border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 font-normal"
-                      >
-                        Sensor #4
-                      </Badge>
-                    </div>
-                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                      Uji speaker fisik &quot;Terima Kasih&quot;
-                    </div>
-                  </div>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleTestAttOfficeVoice}
-                  disabled={testingOfficeVoice}
-                  className="w-full sm:w-auto h-8 px-2.5 text-xs bg-white dark:bg-zinc-800 border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/50 transition-colors cursor-pointer shrink-0"
-                >
-                  {testingOfficeVoice ? "Membunyikan..." : "Tes Suara"}
-                </Button>
               </div>
 
               {/* Waktu Absen - Regional Indonesia (id-ID / WIB) */}

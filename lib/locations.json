@@ -15,5 +15,5 @@
       "radius": 100
     }
   ],
-  "bypassEnabled": true
+  "bypassEnabled": false
 }
