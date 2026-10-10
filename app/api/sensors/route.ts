@@ -54,8 +54,6 @@ export async function GET(request: Request) {
           SENSORID: String(m.ID),
           sn: m.sn || "",
           label: cleanLabel,
-          ip: m.IP || "",
-          port: m.Port || 4370,
         };
       });
     } catch {

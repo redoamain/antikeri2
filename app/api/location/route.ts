@@ -14,13 +14,18 @@ interface LocationItem {
 
 interface LocationsData {
   locations: LocationItem[];
+  bypassEnabled?: boolean;
 }
 
 function getStoredLocations(): LocationsData {
   try {
     if (fs.existsSync(LOCATIONS_FILE)) {
       const content = fs.readFileSync(LOCATIONS_FILE, "utf-8");
-      return JSON.parse(content);
+      const parsed = JSON.parse(content);
+      return {
+        locations: Array.isArray(parsed.locations) ? parsed.locations : [],
+        bypassEnabled: Boolean(parsed.bypassEnabled),
+      };
     }
   } catch (err) {
     console.error("Failed to read locations.json:", err);
@@ -35,6 +40,7 @@ function getStoredLocations(): LocationsData {
         radius: 100,
       },
     ],
+    bypassEnabled: false,
   };
 }
 
@@ -45,7 +51,23 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { lat, lng } = await request.json();
+    const body = await request.json();
+
+    // Jika update status bypassEnabled
+    if (typeof body.bypassEnabled === "boolean") {
+      const data = getStoredLocations();
+      data.bypassEnabled = body.bypassEnabled;
+      fs.writeFileSync(LOCATIONS_FILE, JSON.stringify(data, null, 2), "utf-8");
+      return NextResponse.json({
+        success: true,
+        message: body.bypassEnabled
+          ? "Fitur bypass testing berhasil diaktifkan."
+          : "Fitur bypass testing berhasil dinonaktifkan.",
+        bypassEnabled: data.bypassEnabled,
+      });
+    }
+
+    const { lat, lng } = body;
 
     if (typeof lat !== "number" || typeof lng !== "number") {
       return NextResponse.json(
@@ -75,6 +97,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       message: "Lokasi Ruang IT berhasil disimpan sebagai titik lokasi resmi.",
       locations: data.locations,
+      bypassEnabled: data.bypassEnabled ?? false,
     });
   } catch (err) {
     console.error("Failed to update location:", err);

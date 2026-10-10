@@ -28,7 +28,12 @@ import {
   Lock,
   LogOut,
   Volume2,
+  Camera,
+  Shield,
 } from "lucide-react";
+import Link from "next/link";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { FaceVerificationModal } from "@/components/FaceVerificationModal";
 import {
   Popover,
   PopoverContent,
@@ -93,10 +98,45 @@ function getDistanceInMeters(
   return Math.round(R * c);
 }
 
-function getLocalISOString(): string {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 16);
+// Mendapatkan waktu saat ini dalam zona waktu resmi Indonesia (Asia/Jakarta / WIB, UTC+7)
+function getIndonesiaNowISO(): string {
+  try {
+    const formatter = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Asia/Jakarta",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    });
+    return formatter.format(new Date()).replace(" ", "T");
+  } catch {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - offset).toISOString().slice(0, 16);
+  }
+}
+
+// Format representasi teks tanggal regional Indonesia (id-ID) lengkap dengan hari dan WIB
+function formatIndonesiaDatePreview(isoStr: string): string {
+  if (!isoStr) return "";
+  try {
+    const [dPart, tPart] = isoStr.split("T");
+    if (!dPart) return "";
+    const [year, month, day] = dPart.split("-").map(Number);
+    const [hour, minute] = (tPart || "00:00").split(":").map(Number);
+    const date = new Date(year, month - 1, day, hour, minute);
+    const dateStr = date.toLocaleDateString("id-ID", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    return `${dateStr}, ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")} WIB`;
+  } catch {
+    return isoStr;
+  }
 }
 
 const HomePage: React.FC = () => {
@@ -108,7 +148,7 @@ const HomePage: React.FC = () => {
 
   // Form Absensi
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [checktime, setChecktime] = useState<string>(getLocalISOString());
+  const [checktime, setChecktime] = useState<string>(getIndonesiaNowISO());
   const [loading, setLoading] = useState<boolean>(false);
   const [dbLoading, setDbLoading] = useState<boolean>(true);
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
@@ -120,6 +160,8 @@ const HomePage: React.FC = () => {
   const [sn, setSn] = useState<string>("A6G6200360023");
   const [machines, setMachines] = useState<MachineOption[]>([]);
   const [testingVoice, setTestingVoice] = useState<boolean>(false);
+  const [testingOfficeVoice, setTestingOfficeVoice] = useState<boolean>(false);
+  const [showCameraModal, setShowCameraModal] = useState<boolean>(false);
 
   // Lokasi Resmi PT. Citi Plumb
   const [locations, setLocations] = useState<LocationItem[]>([
@@ -148,6 +190,8 @@ const HomePage: React.FC = () => {
     isInside: false,
     error: null,
   });
+  const [isMockLocation, setIsMockLocation] = useState<boolean>(false);
+  const [bypassAllowed, setBypassAllowed] = useState<boolean>(false);
 
   // Periksa session saat pertama kali mount
   useEffect(() => {
@@ -291,6 +335,28 @@ const HomePage: React.FC = () => {
     );
   };
 
+  const enableMockLocation = () => {
+    if (!bypassAllowed) {
+      toast.error("Fitur bypass testing sedang dinonaktifkan oleh Administrator.");
+      return;
+    }
+    setIsMockLocation(true);
+    setGeo({
+      loading: false,
+      latitude: -7.0975488,
+      longitude: 112.3876864,
+      distance: 0,
+      isInside: true,
+      error: null,
+    });
+    toast.info("Mode Testing Aktif: Lokasi disimulasikan di area PT. Citi Plumb (0 meter).");
+  };
+
+  const disableMockLocation = () => {
+    setIsMockLocation(false);
+    checkLocation();
+  };
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -333,6 +399,14 @@ const HomePage: React.FC = () => {
           setLocations(currentLocList);
         }
 
+        if (typeof locationRes?.data?.bypassEnabled === "boolean") {
+          const isAllowed = locationRes.data.bypassEnabled;
+          setBypassAllowed(isAllowed);
+          if (!isAllowed) {
+            setIsMockLocation(false);
+          }
+        }
+
         checkLocation(currentLocList);
         setDbConnected(true);
       } catch {
@@ -355,7 +429,7 @@ const HomePage: React.FC = () => {
   };
 
   const setTimeToNow = () => {
-    setChecktime(getLocalISOString());
+    setChecktime(getIndonesiaNowISO());
   };
 
   const handleTestMachineVoice = async () => {
@@ -387,7 +461,43 @@ const HomePage: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleTestAttOfficeVoice = async () => {
+    const toastId = toast.loading(
+      "Menghubungkan ke speaker mesin fisik ATT Office..."
+    );
+    try {
+      setTestingOfficeVoice(true);
+      const res = await axios.post("/api/sensors/test-voice", {
+        sensorId: "4",
+        voiceIndex: 0,
+      });
+
+      if (res.data?.success) {
+        toast.success(
+          'Suara "Terima Kasih" berhasil dibunyikan di mesin ATT Office!',
+          { id: toastId }
+        );
+      } else {
+        toast.error(
+          res.data?.message || "Mesin ATT Office tidak merespon",
+          { id: toastId }
+        );
+      }
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err) && err.response?.data?.message) {
+        toast.error(err.response.data.message, { id: toastId });
+      } else {
+        toast.error(
+          "Gagal menghubungi speaker mesin ATT Office. Pastikan mesin aktif di jaringan.",
+          { id: toastId }
+        );
+      }
+    } finally {
+      setTestingOfficeVoice(false);
+    }
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!geo.isInside || geo.latitude === null || geo.longitude === null) {
@@ -412,15 +522,25 @@ const HomePage: React.FC = () => {
       return;
     }
 
+    // Buka verifikasi kamera depan anti-joki terlebih dahulu
+    setShowCameraModal(true);
+  };
+
+  const handleVerifiedAttendance = async () => {
+    setShowCameraModal(false);
+
+    if (!selectedUser || geo.latitude === null || geo.longitude === null) {
+      return;
+    }
+
     try {
       setLoading(true);
 
-      const localDate = new Date(checktime);
-      const jakartaTime = new Date(localDate.getTime() + 7 * 60 * 60 * 1000);
-      const formattedDate = jakartaTime
-        .toISOString()
-        .slice(0, 19)
-        .replace("T", " ");
+      // Format waktu sesuai input regional Indonesia (YYYY-MM-DD HH:MM:SS)
+      let formattedDate = checktime.replace("T", " ");
+      if (formattedDate.length === 16) {
+        formattedDate += ":00";
+      }
 
       const res = await axios.post("/api/users", {
         userId: selectedUser.USERID,
@@ -430,6 +550,8 @@ const HomePage: React.FC = () => {
         verifyCode: 1, // 1 = Fingerprint / Sidik Jari
         latitude: geo.latitude,
         longitude: geo.longitude,
+        isMock: isMockLocation,
+        isBypass: isMockLocation,
       });
 
       const currentMachine = machines.find((m) => m.SENSORID === sensorId);
@@ -464,8 +586,8 @@ const HomePage: React.FC = () => {
   // Layar Loading Awal
   if (checkingAuth) {
     return (
-      <main className="min-h-screen bg-zinc-100 flex items-center justify-center p-4">
-        <div className="w-5 h-5 border-2 border-zinc-400 border-t-zinc-800 rounded-full animate-spin" />
+      <main className="min-h-screen bg-zinc-100 dark:bg-zinc-950 flex items-center justify-center p-4">
+        <div className="w-5 h-5 border-2 border-zinc-400 dark:border-zinc-600 border-t-zinc-800 dark:border-t-zinc-200 rounded-full animate-spin" />
       </main>
     );
   }
@@ -473,17 +595,20 @@ const HomePage: React.FC = () => {
   // Layar Kunci Sandi Akses (Minimalis & Rapi)
   if (!isAuthenticated) {
     return (
-      <main className="min-h-screen bg-zinc-100 flex items-center justify-center p-4 antialiased text-zinc-900">
-        <div className="w-full max-w-sm">
-          <Card className="border border-zinc-200 bg-white shadow-sm rounded-xl">
-            <CardHeader className="border-b border-zinc-100 pb-4 text-center">
-              <div className="mx-auto w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center mb-2 text-zinc-700">
+      <main className="min-h-screen bg-zinc-100 dark:bg-zinc-950 flex items-center justify-center p-4 antialiased text-zinc-900 dark:text-zinc-100">
+        <div className="w-full max-w-sm relative">
+          <div className="absolute right-0 -top-10">
+            <ThemeToggle />
+          </div>
+          <Card className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm rounded-xl">
+            <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 pb-4 text-center">
+              <div className="mx-auto w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-2 text-zinc-700 dark:text-zinc-300">
                 <Lock className="w-5 h-5" />
               </div>
-              <CardTitle className="text-base font-semibold text-zinc-900">
+              <CardTitle className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
                 Akses Keamanan
               </CardTitle>
-              <CardDescription className="text-xs text-zinc-500">
+              <CardDescription className="text-xs text-zinc-500 dark:text-zinc-400">
                 Masukkan kata sandi untuk mengakses sistem presensi
               </CardDescription>
             </CardHeader>
@@ -491,7 +616,7 @@ const HomePage: React.FC = () => {
             <form onSubmit={handlePasswordSubmit}>
               <CardContent className="pt-5 space-y-3.5">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-zinc-700">
+                  <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                     Kata Sandi
                   </label>
                   <Input
@@ -499,7 +624,7 @@ const HomePage: React.FC = () => {
                     value={passwordInput}
                     onChange={(e) => setPasswordInput(e.target.value)}
                     placeholder="Masukkan sandi..."
-                    className="h-10 px-3 border-zinc-200 bg-white"
+                    className="h-10 px-3 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
                     autoFocus
                   />
                 </div>
@@ -507,13 +632,13 @@ const HomePage: React.FC = () => {
                 <Button
                   type="submit"
                   disabled={authLoading || !passwordInput}
-                  className="w-full h-10 bg-zinc-900 hover:bg-zinc-800 text-white font-medium text-sm transition-colors cursor-pointer"
+                  className="w-full h-10 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-medium text-sm transition-colors cursor-pointer"
                 >
                   {authLoading ? "Memverifikasi..." : "Buka Akses"}
                 </Button>
               </CardContent>
 
-              <CardFooter className="border-t border-zinc-100 py-2.5 px-4 bg-zinc-50/50 flex justify-center text-[11px] text-zinc-400">
+              <CardFooter className="border-t border-zinc-100 dark:border-zinc-800 py-2.5 px-4 bg-zinc-50/50 dark:bg-zinc-800/30 flex justify-center text-[11px] text-zinc-400 dark:text-zinc-500">
                 PT. Citi Plumb — Sistem Presensi
               </CardFooter>
             </form>
@@ -525,26 +650,26 @@ const HomePage: React.FC = () => {
 
   // Layar Utama Presensi
   return (
-    <main className="min-h-screen bg-zinc-100 flex items-center justify-center p-4 antialiased text-zinc-900">
-      <div className="w-full max-w-md">
-        <Card className="border border-zinc-200 bg-white shadow-sm rounded-xl">
-          <CardHeader className="border-b border-zinc-100 pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-semibold tracking-tight text-zinc-900 flex items-center gap-2">
-                  <Fingerprint className="w-5 h-5 text-zinc-800" />
-                  Presensi Karyawan
+    <main className="min-h-screen bg-zinc-100 dark:bg-zinc-950 flex items-center justify-center p-3 sm:p-4 antialiased text-zinc-900 dark:text-zinc-100">
+      <div className="w-full max-w-md my-auto">
+        <Card className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm rounded-xl">
+          <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 pb-3 sm:pb-4 px-4 sm:px-6">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <CardTitle className="text-base sm:text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2 truncate">
+                  <Fingerprint className="w-5 h-5 text-zinc-800 dark:text-zinc-200 shrink-0" />
+                  <span className="truncate">Presensi Karyawan</span>
                 </CardTitle>
-                <CardDescription className="text-xs text-zinc-500 mt-0.5">
+                <CardDescription className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
                   PT. Citi Plumb — Lamongan
                 </CardDescription>
               </div>
 
               {/* Status Koneksi DB & Tombol Kunci */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
                   <span
-                    className={`w-2 h-2 rounded-full ${
+                    className={`w-2 h-2 rounded-full shrink-0 ${
                       dbLoading
                         ? "bg-amber-400 animate-pulse"
                         : dbConnected
@@ -552,7 +677,7 @@ const HomePage: React.FC = () => {
                         : "bg-red-500"
                     }`}
                   />
-                  <span>
+                  <span className="hidden sm:inline">
                     {dbLoading
                       ? "Menghubungkan"
                       : dbConnected
@@ -561,71 +686,148 @@ const HomePage: React.FC = () => {
                   </span>
                 </div>
 
+                <ThemeToggle />
+
+                <Link
+                  href="/admin"
+                  title="Dashboard Admin"
+                  className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors cursor-pointer"
+                >
+                  <Shield className="w-4 h-4" />
+                </Link>
+
                 <button
                   type="button"
                   onClick={handleLogout}
                   title="Kunci Akses Aplikasi"
-                  className="p-1 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors cursor-pointer"
+                  className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors cursor-pointer"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
+                  <LogOut className="w-4 h-4" />
                 </button>
               </div>
             </div>
           </CardHeader>
 
           <form onSubmit={handleSubmit}>
-            <CardContent className="pt-5 space-y-4">
+            <CardContent className="pt-4 sm:pt-5 px-4 sm:px-6 space-y-3.5 sm:space-y-4">
               {/* Status Verifikasi Lokasi Geofence */}
-              <div className="rounded-lg border p-3 text-xs transition-colors bg-zinc-50 border-zinc-200">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium flex items-center gap-1.5 text-zinc-700">
-                    <MapPin className="w-3.5 h-3.5 text-zinc-500" />
-                    Area PT. Citi Plumb
+              <div className="rounded-lg border p-3 text-xs transition-colors bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2">
+                  <span className="font-medium flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300 flex-wrap">
+                    <MapPin className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                    <span>Area PT. Citi Plumb</span>
+                    {isMockLocation && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 font-normal"
+                      >
+                        Mode Testing
+                      </Badge>
+                    )}
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={() => checkLocation()}
-                    disabled={geo.loading}
-                    className="text-[11px] text-zinc-500 hover:text-zinc-900 flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
-                  >
-                    <RotateCcw
-                      className={`w-3 h-3 ${geo.loading ? "animate-spin" : ""}`}
-                    />
-                    Cek Lokasi
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {isMockLocation ? (
+                      <button
+                        type="button"
+                        onClick={disableMockLocation}
+                        className="text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        Gunakan GPS Asli
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => checkLocation()}
+                          disabled={geo.loading}
+                          className="text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
+                        >
+                          <RotateCcw
+                            className={`w-3 h-3 ${geo.loading ? "animate-spin" : ""}`}
+                          />
+                          Cek Lokasi
+                        </button>
+                        {bypassAllowed && (
+                          <button
+                            type="button"
+                            onClick={enableMockLocation}
+                            title="Simulasi lokasi kantor untuk pengujian dari luar area"
+                            className="text-[11px] text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium flex items-center gap-1 cursor-pointer transition-colors underline underline-offset-2"
+                          >
+                            Bypass Testing
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
 
-                <div className="mt-2 pt-2 border-t border-zinc-200/60">
+                <div className="mt-2 pt-2 border-t border-zinc-200/60 dark:border-zinc-800">
                   {geo.loading ? (
-                    <div className="flex items-center gap-2 text-zinc-500">
+                    <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
                       <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
                       <span>Mendeteksi koordinat GPS perangkat Anda...</span>
                     </div>
                   ) : geo.error ? (
-                    <div className="flex items-start gap-1.5 text-red-600">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                      <span>{geo.error}</span>
+                    <div className="flex items-start justify-between gap-2 text-red-600 dark:text-red-400">
+                      <div className="flex items-start gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>{geo.error}</span>
+                      </div>
+                      {bypassAllowed && (
+                        <button
+                          type="button"
+                          onClick={enableMockLocation}
+                          className="text-[11px] bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded font-medium transition-colors shrink-0 cursor-pointer"
+                        >
+                          Mode Testing
+                        </button>
+                      )}
+                    </div>
+                  ) : isMockLocation ? (
+                    <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span className="font-medium">
+                          Lokasi Disimulasikan (Area Kantor)
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-emerald-600 dark:text-emerald-500">
+                        Jarak: 0m (Siap Uji Coba)
+                      </span>
                     </div>
                   ) : geo.isInside ? (
-                    <div className="flex items-center justify-between text-emerald-700">
+                    <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400">
                       <div className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-emerald-500" />
                         <span className="font-medium">
                           Di Dalam Area PT. Citi Plumb
                         </span>
                       </div>
-                      <span className="text-[11px] text-emerald-600">
+                      <span className="text-[11px] text-emerald-600 dark:text-emerald-500">
                         Jarak: ~{geo.distance}m (Maks. 100m)
                       </span>
                     </div>
                   ) : (
-                    <div className="flex flex-col gap-1 text-red-600">
-                      <div className="flex items-center gap-1.5 font-medium">
-                        <span className="w-2 h-2 rounded-full bg-red-500" />
-                        <span>Di Luar Area PT. Citi Plumb (Terkunci)</span>
+                    <div className="flex flex-col gap-1.5 text-red-600 dark:text-red-400">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                          <span>Di Luar Area PT. Citi Plumb (Terkunci)</span>
+                        </div>
+                        {bypassAllowed && (
+                          <button
+                            type="button"
+                            onClick={enableMockLocation}
+                            className="text-[11px] bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded font-medium transition-colors cursor-pointer self-start sm:self-auto"
+                          >
+                            Bypass Uji Coba
+                          </button>
+                        )}
                       </div>
-                      <span className="text-[11px] text-red-500">
+                      <span className="text-[11px] text-red-500 dark:text-red-400">
                         Jarak Anda saat ini: ~
                         {geo.distance !== null && geo.distance >= 1000
                           ? `${(geo.distance / 1000).toFixed(1)} km`
@@ -639,8 +841,8 @@ const HomePage: React.FC = () => {
 
               {/* Pilih Karyawan */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-700 flex items-center gap-1.5">
-                  <UserIcon className="w-3.5 h-3.5 text-zinc-500" />
+                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                  <UserIcon className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                   Karyawan
                 </label>
 
@@ -649,24 +851,24 @@ const HomePage: React.FC = () => {
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full justify-between h-10 px-3 border-zinc-200 bg-white hover:bg-zinc-50 text-left font-normal"
+                      className="w-full justify-between h-10 px-3 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 text-left font-normal"
                     >
                       <span
                         className={
-                          selectedUser ? "text-zinc-900" : "text-zinc-400"
+                          selectedUser ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400 dark:text-zinc-500"
                         }
                       >
                         {selectedUser ? selectedUser.Name : "Pilih karyawan..."}
                       </span>
-                      <ChevronsUpDown className="w-4 h-4 text-zinc-400 opacity-70" />
+                      <ChevronsUpDown className="w-4 h-4 text-zinc-400 dark:text-zinc-500 opacity-70" />
                     </Button>
                   </PopoverTrigger>
 
                   <PopoverContent
-                    className="w-[--radix-popover-trigger-width] p-0"
+                    className="w-[--radix-popover-trigger-width] p-0 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
                     align="start"
                   >
-                    <Command>
+                    <Command className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
                       <CommandInput placeholder="Cari nama karyawan..." />
                       <CommandList>
                         <CommandEmpty>Karyawan tidak ditemukan.</CommandEmpty>
@@ -683,12 +885,12 @@ const HomePage: React.FC = () => {
                               <Check
                                 className={`mr-2 h-4 w-4 ${
                                   selectedUser?.USERID === user.USERID
-                                    ? "opacity-100 text-zinc-900"
+                                    ? "opacity-100 text-zinc-900 dark:text-zinc-100"
                                     : "opacity-0"
                                 }`}
                               />
                               <span className="flex-1">{user.Name}</span>
-                              <span className="text-xs text-zinc-400">
+                              <span className="text-xs text-zinc-400 dark:text-zinc-500">
                                 #{user.USERID}
                               </span>
                             </CommandItem>
@@ -703,8 +905,8 @@ const HomePage: React.FC = () => {
               {/* Tempat / Sensor ID */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-zinc-700 flex items-center gap-1.5">
-                    <Cpu className="w-3.5 h-3.5 text-zinc-500" />
+                  <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                     Tempat / Sensor ID
                   </label>
                   <button
@@ -712,17 +914,17 @@ const HomePage: React.FC = () => {
                     onClick={handleTestMachineVoice}
                     disabled={testingVoice}
                     title="Uji speaker mesin sensor langsung"
-                    className="text-[11px] text-zinc-500 hover:text-zinc-900 flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
+                    className="text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
                   >
                     <Volume2
-                      className={`w-3 h-3 ${testingVoice ? "animate-pulse text-emerald-600" : ""}`}
+                      className={`w-3 h-3 ${testingVoice ? "animate-pulse text-emerald-600 dark:text-emerald-400" : ""}`}
                     />
                     {testingVoice ? "Membunyikan..." : "Tes Suara Mesin"}
                   </button>
                 </div>
 
                 <Select value={sensorId} onValueChange={handleSensorChange}>
-                  <SelectTrigger className="w-full h-10 px-3 border-zinc-200 bg-white">
+                  <SelectTrigger className="w-full h-10 px-3 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
                     <SelectValue placeholder="Pilih sensor ID" />
                   </SelectTrigger>
                   <SelectContent>
@@ -741,20 +943,63 @@ const HomePage: React.FC = () => {
                 </Select>
               </div>
 
-              {/* Waktu Absen */}
+              {/* Box Uji Coba Suara Khusus ATT Office */}
+              <div className="rounded-lg border border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-md bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center text-emerald-700 dark:text-emerald-300 shrink-0">
+                    <Volume2
+                      className={`w-4 h-4 ${testingOfficeVoice ? "animate-bounce text-emerald-600 dark:text-emerald-400" : ""}`}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5 flex-wrap">
+                      <span>ATT Office</span>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 h-4 bg-white dark:bg-zinc-800 border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 font-normal"
+                      >
+                        Sensor #4
+                      </Badge>
+                    </div>
+                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                      Uji speaker fisik &quot;Terima Kasih&quot;
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTestAttOfficeVoice}
+                  disabled={testingOfficeVoice}
+                  className="w-full sm:w-auto h-8 px-2.5 text-xs bg-white dark:bg-zinc-800 border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/50 transition-colors cursor-pointer shrink-0"
+                >
+                  {testingOfficeVoice ? "Membunyikan..." : "Tes Suara"}
+                </Button>
+              </div>
+
+              {/* Waktu Absen - Regional Indonesia (id-ID / WIB) */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-zinc-700 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-zinc-500" />
-                    Waktu Absen
+                  <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                    <span>Waktu Absen</span>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0 font-normal border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
+                    >
+                      WIB (UTC+7)
+                    </Badge>
                   </label>
                   <button
                     type="button"
                     onClick={setTimeToNow}
-                    className="text-[11px] text-zinc-500 hover:text-zinc-900 flex items-center gap-1 cursor-pointer transition-colors"
+                    title="Setel otomatis ke waktu Indonesia (WIB) saat ini"
+                    className="text-[11px] text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 flex items-center gap-1 cursor-pointer transition-colors"
                   >
                     <RotateCcw className="w-3 h-3" />
-                    Set Sekarang
+                    Set Sekarang (WIB)
                   </button>
                 </div>
 
@@ -762,27 +1007,48 @@ const HomePage: React.FC = () => {
                   type="datetime-local"
                   value={checktime}
                   onChange={(e) => setChecktime(e.target.value)}
-                  className="h-10 px-3 border-zinc-200 bg-white"
+                  className="h-10 px-3 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-mono text-sm"
                 />
+
+                {/* Preview Format Regional Indonesia */}
+                <div className="rounded-md bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/80 px-2.5 py-1.5 flex items-center justify-between text-[11px] text-zinc-600 dark:text-zinc-300">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                      {formatIndonesiaDatePreview(checktime)}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 shrink-0 font-mono">
+                    id-ID
+                  </span>
+                </div>
               </div>
 
               {/* Info Metode */}
-              <div className="rounded-lg bg-zinc-50 border border-zinc-200/80 p-2.5 flex items-center justify-between text-xs">
-                <span className="text-zinc-500">Metode Verifikasi</span>
-                <Badge
-                  variant="outline"
-                  className="bg-white border-zinc-200 text-zinc-700 font-normal gap-1 py-0.5"
-                >
-                  <Fingerprint className="w-3 h-3 text-emerald-600" />
-                  Sidik Jari (VERIFYCODE: 1)
-                </Badge>
+              <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800 p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs">
+                <span className="text-zinc-500 dark:text-zinc-400">Metode Verifikasi</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Badge
+                    variant="outline"
+                    className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 font-normal gap-1 py-0.5 text-[11px]"
+                  >
+                    <Camera className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                    Kamera Wajah
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 font-normal gap-1 py-0.5 text-[11px]"
+                  >
+                    <Fingerprint className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                    Sidik Jari
+                  </Badge>
+                </div>
               </div>
 
               {/* Submit Button */}
               <Button
                 type="submit"
                 disabled={loading || !selectedUser || !geo.isInside || geo.loading}
-                className="w-full h-10 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:text-zinc-500 text-white font-medium text-sm transition-colors cursor-pointer disabled:cursor-not-allowed"
+                className="w-full h-10 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 disabled:bg-zinc-300 dark:disabled:bg-zinc-800 disabled:text-zinc-500 dark:disabled:text-zinc-600 text-white dark:text-zinc-900 font-medium text-sm transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
                 {loading
                   ? "Menyimpan..."
@@ -794,8 +1060,8 @@ const HomePage: React.FC = () => {
               </Button>
             </CardContent>
 
-            <CardFooter className="border-t border-zinc-100 py-2.5 px-4 bg-zinc-50/50 flex items-center justify-between text-[11px] text-zinc-400">
-              <span>
+            <CardFooter className="border-t border-zinc-100 dark:border-zinc-800 py-2.5 px-4 bg-zinc-50/50 dark:bg-zinc-800/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+              <span className="truncate">
                 Tempat:{" "}
                 {machines.find((m) => m.SENSORID === sensorId)?.label ||
                   (sensorId === "4"
@@ -804,10 +1070,18 @@ const HomePage: React.FC = () => {
                     ? "ATT Security"
                     : `Sensor ${sensorId}`)}
               </span>
-              <span>SN: {sn}</span>
+              <span className="shrink-0 font-mono">SN: {sn}</span>
             </CardFooter>
           </form>
         </Card>
+
+        {/* Modal Kamera Verifikasi Wajah Anti-Joki (Simulasi Jepretan Tanpa Simpan Foto) */}
+        <FaceVerificationModal
+          open={showCameraModal}
+          userName={selectedUser?.Name || "Karyawan"}
+          onVerified={handleVerifiedAttendance}
+          onCancel={() => setShowCameraModal(false)}
+        />
       </div>
     </main>
   );

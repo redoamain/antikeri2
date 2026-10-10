@@ -104,8 +104,17 @@ export async function POST(request: Request) {
   let pool;
   try {
     // Ambil data dari request body
-    const { userId, checktime, sensorId, sn, verifyCode, latitude, longitude } =
-      await request.json();
+    const {
+      userId,
+      checktime,
+      sensorId,
+      sn,
+      verifyCode,
+      latitude,
+      longitude,
+      isMock,
+      isBypass,
+    } = await request.json();
     console.log("presensi jam : ", checktime);
 
     // Validasi data dasar
@@ -114,6 +123,29 @@ export async function POST(request: Request) {
         { error: "userId and checktime are required" },
         { status: 400 }
       );
+    }
+
+    // Jika pengiriman menggunakan bypass / mock location, periksa apakah fitur bypass diizinkan admin
+    if (isMock || isBypass) {
+      let bypassPermitted = false;
+      try {
+        if (fs.existsSync(LOCATIONS_FILE)) {
+          const lData = JSON.parse(fs.readFileSync(LOCATIONS_FILE, "utf-8"));
+          bypassPermitted = Boolean(lData.bypassEnabled);
+        }
+      } catch (err) {
+        console.error("Gagal memeriksa bypassEnabled:", err);
+      }
+
+      if (!bypassPermitted) {
+        return NextResponse.json(
+          {
+            error:
+              "Fitur bypass lokasi dinonaktifkan oleh administrator. Anda wajib berada di area PT. Citi Plumb.",
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Validasi lokasi geografis: periksa terhadap semua titik yang diizinkan (Pabrik / Ruang IT)

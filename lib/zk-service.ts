@@ -8,21 +8,64 @@ export interface MachineInfo {
   label: string;
 }
 
-export const KNOWN_MACHINES: Record<string, MachineInfo> = {
-  "1": { ip: "192.168.1.241", port: 4370, label: "ATT Admin" },
-  "2": { ip: "192.168.1.242", port: 4370, label: "ATT 2 Injection" },
-  "3": { ip: "192.168.1.243", port: 4370, label: "ATT 3 Belakang" },
-  "4": { ip: "192.168.1.244", port: 4370, label: "ATT Office" },
-  "5": { ip: "192.168.1.245", port: 4370, label: "ATT Assembly" },
-  "6": { ip: "192.168.1.246", port: 4370, label: "ATT Security" },
-};
+export function getKnownMachines(): Record<string, MachineInfo> {
+  const defaultPort = Number(process.env.MACHINE_PORT) || 4370;
+  return {
+    "1": {
+      ip: process.env.MACHINE_1_IP || "192.168.1.241",
+      port: defaultPort,
+      label: "ATT Admin",
+    },
+    "2": {
+      ip: process.env.MACHINE_2_IP || "192.168.1.242",
+      port: defaultPort,
+      label: "ATT 2 Injection",
+    },
+    "3": {
+      ip: process.env.MACHINE_3_IP || "192.168.1.243",
+      port: defaultPort,
+      label: "ATT 3 Belakang",
+    },
+    "4": {
+      ip: process.env.MACHINE_OFFICE_IP || process.env.MACHINE_4_IP || "192.168.1.244",
+      port: defaultPort,
+      label: "ATT Office",
+    },
+    "5": {
+      ip: process.env.MACHINE_5_IP || "192.168.1.245",
+      port: defaultPort,
+      label: "ATT Assembly",
+    },
+    "6": {
+      ip: process.env.MACHINE_6_IP || "192.168.1.246",
+      port: defaultPort,
+      label: "ATT Security",
+    },
+  };
+}
+
+export const KNOWN_MACHINES: Record<string, MachineInfo> = new Proxy(
+  {},
+  {
+    get(_target, prop: string) {
+      return getKnownMachines()[prop];
+    },
+  }
+);
 
 /**
- * Mendapatkan informasi IP & Port mesin berdasarkan Sensor ID dari database atau daftar fallback.
+ * Mendapatkan informasi IP & Port mesin berdasarkan Sensor ID dari database atau env fallback.
  */
 export async function getMachineInfo(sensorId: string | number): Promise<MachineInfo> {
   const sid = String(sensorId || "4").trim();
+  const known = getKnownMachines();
 
+  // 1. Cek konfigurasi ENV eksplisit terlebih dahulu
+  if (known[sid]?.ip) {
+    // Jika ada override ENV spesifik untuk sensor ini, bisa langsung gunakan
+  }
+
+  // 2. Query ke database jika ada
   try {
     const pool = await sql.connect(config);
     const result = await pool
@@ -32,22 +75,24 @@ export async function getMachineInfo(sensorId: string | number): Promise<Machine
 
     if (result.recordset.length > 0) {
       const row = result.recordset[0];
-      if (row.IP) {
+      // Utamakan IP dari ENV jika disetel, jika tidak gunakan dari DB
+      const resolvedIp = known[sid]?.ip || (row.IP ? String(row.IP).trim() : "");
+      if (resolvedIp) {
         return {
-          ip: String(row.IP).trim(),
-          port: Number(row.Port) || 4370,
+          ip: resolvedIp,
+          port: Number(row.Port) || Number(process.env.MACHINE_PORT) || 4370,
           label: row.MachineAlias || `Sensor ${sid}`,
         };
       }
     }
   } catch (err) {
-    console.warn(`[ZK-Device] Gagal query Machines untuk Sensor ${sid}, menggunakan fallback:`, err);
+    console.warn(`[ZK-Device] Gagal query Machines untuk Sensor ${sid}, menggunakan konfigurasi ENV:`, err);
   }
 
   return (
-    KNOWN_MACHINES[sid] || {
-      ip: "192.168.1.244",
-      port: 4370,
+    known[sid] || {
+      ip: process.env.MACHINE_OFFICE_IP || process.env.MACHINE_4_IP || "192.168.1.244",
+      port: Number(process.env.MACHINE_PORT) || 4370,
       label: "ATT Office",
     }
   );

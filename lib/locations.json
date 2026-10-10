@@ -14,5 +14,6 @@
       "lng": 112.3820146,
       "radius": 100
     }
-  ]
+  ],
+  "bypassEnabled": true
 }

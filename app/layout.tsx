@@ -3,7 +3,8 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 import { Toaster } from "@/components/ui/sonner"
-import { Metadata } from "next"
+import { Metadata, Viewport } from "next"
+import { PwaPrompt } from "@/components/PwaPrompt"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -15,12 +16,31 @@ const fontMono = Geist_Mono({
   variable: "--font-mono",
 })
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+}
+
 export const metadata: Metadata = {
   title: {
-    default: "Antikeri",
+    default: "Antikeri — Presensi PT. Citi Plumb",
     template: "%s | Antikeri",
   },
-  description: "Presensi Online modern, cepat, dan mudah digunakan",
+  description: "Presensi Online modern, cepat, dan mudah digunakan — PT. Citi Plumb",
+  applicationName: "Antikeri Presensi",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Presensi Citi Plumb",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 
   icons: {
     icon: [
@@ -45,8 +65,8 @@ export const metadata: Metadata = {
   },
 
   openGraph: {
-    title: "Antikeri",
-    description: "Presensi Online modern, cepat, dan mudah digunakan",
+    title: "Antikeri — Presensi PT. Citi Plumb",
+    description: "Presensi Online modern, cepat, dan mudah digunakan — PT. Citi Plumb",
     url: "https://antikeri.citiplumb.id",
     siteName: "Antikeri",
     images: [
@@ -63,8 +83,8 @@ export const metadata: Metadata = {
 
   twitter: {
     card: "summary_large_image",
-    title: "Antikeri",
-    description: "Presensi Online modern, cepat, dan mudah digunakan",
+    title: "Antikeri — Presensi PT. Citi Plumb",
+    description: "Presensi Online modern, cepat, dan mudah digunakan — PT. Citi Plumb",
     images: ["/android-chrome-512x512.png"],
   },
 }
@@ -85,9 +105,10 @@ export default function RootLayout({
         inter.variable
       )}
     >
-      <body>
+      <body className="min-h-screen bg-background text-foreground transition-colors">
         <ThemeProvider>
           {children}
+          <PwaPrompt />
           <Toaster />
         </ThemeProvider>
       </body>
