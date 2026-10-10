@@ -126,14 +126,14 @@ const HomePage: React.FC = () => {
       name: "PT. Citi Plumb",
       lat: -7.0975488,
       lng: 112.3876864,
-      radius: 50,
+      radius: 100,
     },
     {
       id: "factory",
       name: "PT. Citi Plumb",
       lat: -7.1043177,
       lng: 112.3820146,
-      radius: 50,
+      radius: 100,
     },
   ]);
 
@@ -209,7 +209,7 @@ const HomePage: React.FC = () => {
         if (d < minDistance) {
           minDistance = d;
         }
-        if (d <= (loc.radius || 50)) {
+        if (d <= (loc.radius || 100)) {
           isInside = true;
           minDistance = d;
           break;
@@ -255,7 +255,7 @@ const HomePage: React.FC = () => {
 
         if (!evalRes.isInside) {
           toast.error(
-            `Di luar area PT. Citi Plumb (Jarak: ${evalRes.distance}m, maks: 50m)`
+            `Di luar area PT. Citi Plumb (Jarak: ${evalRes.distance}m, maks: 100m)`
           );
         } else {
           toast.success(
@@ -361,7 +361,7 @@ const HomePage: React.FC = () => {
 
     if (!geo.isInside || geo.latitude === null || geo.longitude === null) {
       toast.error(
-        "Absen ditolak: Anda harus berada di area PT. Citi Plumb (Maksimal radius 50 meter)."
+        "Absen ditolak: Anda harus berada di area PT. Citi Plumb (Maksimal radius 100 meter)."
       );
       return;
     }
@@ -579,7 +579,7 @@ const HomePage: React.FC = () => {
                         </span>
                       </div>
                       <span className="text-[11px] text-emerald-600">
-                        Jarak: ~{geo.distance}m (Maks. 50m)
+                        Jarak: ~{geo.distance}m (Maks. 100m)
                       </span>
                     </div>
                   ) : (
@@ -593,7 +593,7 @@ const HomePage: React.FC = () => {
                         {geo.distance !== null && geo.distance >= 1000
                           ? `${(geo.distance / 1000).toFixed(1)} km`
                           : `${geo.distance} meter`}{" "}
-                        (Maksimal radius: 50 meter)
+                        (Maksimal radius: 100 meter)
                       </span>
                     </div>
                   )}
