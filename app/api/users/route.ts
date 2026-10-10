@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "mssql";
 import config from "@/lib/config";
+import { triggerAttendanceVoice } from "@/lib/zk-service";
 
 
 
@@ -150,6 +151,7 @@ export async function POST(request: Request) {
 
     // 1 = Fingerprint (Sidik Jari), 0 = Password
     const finalVerifyCode = typeof verifyCode === "number" ? verifyCode : 1;
+    const targetSensorId = String(sensorId ?? "4");
 
     // Buat koneksi ke SQL Server
     pool = await sql.connect(config);
@@ -159,17 +161,32 @@ export async function POST(request: Request) {
       .request()
       .input("userId", sql.Int, userId)
       .input("checktime", sql.VarChar, checktime)
-      .input("sensorId", sql.VarChar, String(sensorId ?? "1"))
+      .input("sensorId", sql.VarChar, targetSensorId)
       .input("sn", sql.VarChar, sn ?? "A5NS190560046")
       .input("verifyCode", sql.Int, finalVerifyCode)
       .query(
         "INSERT INTO CHECKINOUT (USERID, CHECKTIME, SENSORID, sn, VERIFYCODE) VALUES (@userId, @checktime, @sensorId, @sn, @verifyCode)"
       );
 
+    // Tutup koneksi DB lebih awal
+    if (pool) {
+      await pool.close();
+      pool = undefined;
+    }
+
+    // Pemicu suara mesin fisik (Cara 2: hardware speaker ZKTeco standalone)
+    let machineSoundResult = null;
+    try {
+      machineSoundResult = await triggerAttendanceVoice(targetSensorId);
+    } catch (soundErr) {
+      console.warn("Gagal memicu suara speaker mesin:", soundErr);
+    }
+
     // Kirim respons sukses
     return NextResponse.json({
       message: "Check-in/out data inserted successfully with Fingerprint verification",
       verifyCode: finalVerifyCode,
+      machineSound: machineSoundResult,
     });
   } catch (error) {
     console.error(error);
@@ -178,7 +195,7 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   } finally {
-    // Pastikan untuk menutup koneksi
+    // Pastikan untuk menutup koneksi jika masih terbuka
     if (pool) {
       await pool.close();
     }

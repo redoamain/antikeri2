@@ -27,6 +27,7 @@ import {
   AlertCircle,
   Lock,
   LogOut,
+  Volume2,
 } from "lucide-react";
 import {
   Popover,
@@ -118,6 +119,7 @@ const HomePage: React.FC = () => {
   const [sensorId, setSensorId] = useState<string>("4");
   const [sn, setSn] = useState<string>("A6G6200360023");
   const [machines, setMachines] = useState<MachineOption[]>([]);
+  const [testingVoice, setTestingVoice] = useState<boolean>(false);
 
   // Lokasi Resmi PT. Citi Plumb
   const [locations, setLocations] = useState<LocationItem[]>([
@@ -356,6 +358,35 @@ const HomePage: React.FC = () => {
     setChecktime(getLocalISOString());
   };
 
+  const handleTestMachineVoice = async () => {
+    try {
+      setTestingVoice(true);
+      const res = await axios.post("/api/sensors/test-voice", { sensorId });
+      const currentMachine = machines.find((m) => m.SENSORID === sensorId);
+      const currentLabel =
+        currentMachine?.label ||
+        (sensorId === "4"
+          ? "ATT Office"
+          : sensorId === "6"
+          ? "ATT Security"
+          : `Sensor ${sensorId}`);
+
+      if (res.data?.success) {
+        toast.success(`Suara "Terima Kasih" berbunyi di mesin ${currentLabel}!`);
+      } else {
+        toast.error(res.data?.message || `Mesin ${currentLabel} tidak merespon`);
+      }
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err) && err.response?.data?.message) {
+        toast.error(err.response.data.message);
+      } else {
+        toast.error("Gagal menghubungi speaker mesin fisik.");
+      }
+    } finally {
+      setTestingVoice(false);
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -391,7 +422,7 @@ const HomePage: React.FC = () => {
         .slice(0, 19)
         .replace("T", " ");
 
-      await axios.post("/api/users", {
+      const res = await axios.post("/api/users", {
         userId: selectedUser.USERID,
         checktime: formattedDate,
         sensorId: sensorId,
@@ -410,9 +441,15 @@ const HomePage: React.FC = () => {
           ? "ATT Security"
           : `Sensor ${sensorId}`);
 
-      toast.success(
-        `Absen berhasil dicatat: ${selectedUser.Name} (${currentLabel} - Sidik Jari)`
-      );
+      if (res.data?.machineSound?.success) {
+        toast.success(
+          `Absen berhasil dicatat: ${selectedUser.Name} (${currentLabel} - Sidik Jari) • Mesin berbunyi`
+        );
+      } else {
+        toast.success(
+          `Absen berhasil dicatat: ${selectedUser.Name} (${currentLabel} - Sidik Jari)`
+        );
+      }
     } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response?.data?.error) {
         toast.error(err.response.data.error);
@@ -665,10 +702,24 @@ const HomePage: React.FC = () => {
 
               {/* Tempat / Sensor ID */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-700 flex items-center gap-1.5">
-                  <Cpu className="w-3.5 h-3.5 text-zinc-500" />
-                  Tempat / Sensor ID
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-zinc-700 flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5 text-zinc-500" />
+                    Tempat / Sensor ID
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleTestMachineVoice}
+                    disabled={testingVoice}
+                    title="Uji speaker mesin sensor langsung"
+                    className="text-[11px] text-zinc-500 hover:text-zinc-900 flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <Volume2
+                      className={`w-3 h-3 ${testingVoice ? "animate-pulse text-emerald-600" : ""}`}
+                    />
+                    {testingVoice ? "Membunyikan..." : "Tes Suara Mesin"}
+                  </button>
+                </div>
 
                 <Select value={sensorId} onValueChange={handleSensorChange}>
                   <SelectTrigger className="w-full h-10 px-3 border-zinc-200 bg-white">

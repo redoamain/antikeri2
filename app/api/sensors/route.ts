@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     let machinesList: { SENSORID: string; sn: string; label?: string }[] = [];
     try {
       const machinesResult = await pool.request().query(`
-        SELECT ID, MachineAlias, sn 
+        SELECT *
         FROM Machines
         ORDER BY 
           CASE 
@@ -54,6 +54,8 @@ export async function GET(request: Request) {
           SENSORID: String(m.ID),
           sn: m.sn || "",
           label: cleanLabel,
+          ip: m.IP || "",
+          port: m.Port || 4370,
         };
       });
     } catch {
