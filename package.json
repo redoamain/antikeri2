@@ -10,7 +10,7 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
-    "test:machine": "bun run test-machine.ts"
+    "test:machine": "npx tsx test-machine.ts"
   },
   "dependencies": {
     "axios": "^1.14.0",

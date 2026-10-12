@@ -123,13 +123,13 @@ Jalankan perintah berikut di terminal:
 
 ```bash
 # Uji coba ke IP mesin bawaan (192.168.1.244)
-bun run test:machine
+pnpm run test:machine
 
 # ATAU uji coba langsung ke IP mesin tertentu:
-bun run test-machine.ts 192.168.1.244
+npx tsx test-machine.ts 192.168.1.244
 
 # Tentukan IP dan port khusus (jika port bukan 4370):
-bun run test-machine.ts 192.168.1.244 4370
+npx tsx test-machine.ts 192.168.1.244 4370
 ```
 
 **Hasil yang diharapkan saat sukses:**
@@ -143,9 +143,8 @@ Target: 192.168.1.244:4370
   -> Berhasil terhubung ke socket mesin!
 
 [2/3] Membaca data perangkat...
-  -> Serial Number  : A6G6200360023
-  -> Firmware Version: Ver 8.0.4.2-20191220
-  -> Device Name     : X105-ID
+  -> Total User Terdaftar : 248
+  -> Total Log Presensi   : 113
 
 [3/3] Membunyikan suara ucapan "Terima Kasih" (CMD 1017)...
   -> PERINTAH SUARA BERHASIL DIKIRIM! Dengarkan suara pada speaker mesin fisik.

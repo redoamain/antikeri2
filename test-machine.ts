@@ -28,14 +28,11 @@ async function runTest() {
 
     console.log(`[2/3] Membaca data perangkat...`);
     try {
-      const serial = await zk.getSerialNumber().catch(() => null);
-      if (serial) console.log(`  -> Serial Number  : ${serial}`);
-
-      const version = await zk.getFirmware().catch(() => null);
-      if (version) console.log(`  -> Firmware Version: ${version}`);
-
-      const deviceName = await zk.getDeviceName().catch(() => null);
-      if (deviceName) console.log(`  -> Device Name     : ${deviceName}`);
+      const info = await zk.getInfo().catch(() => null);
+      if (info) {
+        if (info.userCounts !== undefined) console.log(`  -> Total User Terdaftar : ${info.userCounts}`);
+        if (info.logCounts !== undefined)  console.log(`  -> Total Log Presensi   : ${info.logCounts}`);
+      }
     } catch (e) {
       console.log(`  -> Info detail perangkat tidak dapat dibaca, tapi socket aktif.`);
     }
