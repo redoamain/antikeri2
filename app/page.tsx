@@ -155,9 +155,9 @@ const HomePage: React.FC = () => {
   const [allowedUsers, setAllowedUsers] = useState<User[]>([]);
   const [openCombobox, setOpenCombobox] = useState<boolean>(false);
 
-  // Tempat Sensor ID & SN (default ATT Office: SENSORID 4)
-  const [sensorId, setSensorId] = useState<string>("4");
-  const [sn, setSn] = useState<string>("A6G6200360023");
+  // Tempat Sensor ID & SN (default ATT Office: SENSORID 1)
+  const [sensorId, setSensorId] = useState<string>("1");
+  const [sn, setSn] = useState<string>("A5NS190560046");
   const [machines, setMachines] = useState<MachineOption[]>([]);
   const [testingVoice, setTestingVoice] = useState<boolean>(false);
   const [showCameraModal, setShowCameraModal] = useState<boolean>(false);
@@ -438,8 +438,10 @@ const HomePage: React.FC = () => {
       const currentMachine = machines.find((m) => m.SENSORID === sensorId);
       const currentLabel =
         currentMachine?.label ||
-        (sensorId === "4"
+        (sensorId === "1"
           ? "ATT Office"
+          : sensorId === "4"
+          ? "ATT Injection"
           : sensorId === "6"
           ? "ATT Security"
           : `Sensor ${sensorId}`);
@@ -520,8 +522,10 @@ const HomePage: React.FC = () => {
       const currentMachine = machines.find((m) => m.SENSORID === sensorId);
       const currentLabel =
         currentMachine?.label ||
-        (sensorId === "4"
+        (sensorId === "1"
           ? "ATT Office"
+          : sensorId === "4"
+          ? "ATT Injection"
           : sensorId === "6"
           ? "ATT Security"
           : `Sensor ${sensorId}`);
@@ -898,7 +902,8 @@ const HomePage: React.FC = () => {
                     ))}
                     {machines.length === 0 && (
                       <>
-                        <SelectItem value="4">ATT Office</SelectItem>
+                        <SelectItem value="1">ATT Office</SelectItem>
+                        <SelectItem value="4">ATT Injection</SelectItem>
                         <SelectItem value="6">ATT Security</SelectItem>
                       </>
                     )}
@@ -991,8 +996,10 @@ const HomePage: React.FC = () => {
               <span className="truncate">
                 Tempat:{" "}
                 {machines.find((m) => m.SENSORID === sensorId)?.label ||
-                  (sensorId === "4"
+                  (sensorId === "1"
                     ? "ATT Office"
+                    : sensorId === "4"
+                    ? "ATT Injection"
                     : sensorId === "6"
                     ? "ATT Security"
                     : `Sensor ${sensorId}`)}

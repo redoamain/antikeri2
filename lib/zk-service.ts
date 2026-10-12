@@ -12,24 +12,24 @@ export function getKnownMachines(): Record<string, MachineInfo> {
   const defaultPort = Number(process.env.MACHINE_PORT) || 4370;
   return {
     "1": {
-      ip: process.env.MACHINE_1_IP || "192.168.1.241",
+      ip: process.env.MACHINE_1_IP || process.env.MACHINE_OFFICE_IP || "192.168.1.241",
       port: defaultPort,
-      label: "ATT Admin",
+      label: "ATT Office",
     },
     "2": {
       ip: process.env.MACHINE_2_IP || "192.168.1.242",
       port: defaultPort,
-      label: "ATT 2 Injection",
+      label: "X OFFLINE X",
     },
     "3": {
       ip: process.env.MACHINE_3_IP || "192.168.1.243",
       port: defaultPort,
-      label: "ATT 3 Belakang",
+      label: "ATT Spray",
     },
     "4": {
-      ip: process.env.MACHINE_OFFICE_IP || process.env.MACHINE_4_IP || "192.168.1.244",
+      ip: process.env.MACHINE_4_IP || "192.168.1.244",
       port: defaultPort,
-      label: "ATT Office",
+      label: "ATT Injection",
     },
     "5": {
       ip: process.env.MACHINE_5_IP || "192.168.1.245",
@@ -57,15 +57,10 @@ export const KNOWN_MACHINES: Record<string, MachineInfo> = new Proxy(
  * Mendapatkan informasi IP & Port mesin berdasarkan Sensor ID dari database atau env fallback.
  */
 export async function getMachineInfo(sensorId: string | number): Promise<MachineInfo> {
-  const sid = String(sensorId || "4").trim();
+  const sid = String(sensorId || "1").trim();
   const known = getKnownMachines();
 
-  // 1. Cek konfigurasi ENV eksplisit terlebih dahulu
-  if (known[sid]?.ip) {
-    // Jika ada override ENV spesifik untuk sensor ini, bisa langsung gunakan
-  }
-
-  // 2. Query ke database jika ada
+  // 1. Query ke database jika ada
   try {
     const pool = await sql.connect(config);
     const result = await pool
@@ -75,13 +70,13 @@ export async function getMachineInfo(sensorId: string | number): Promise<Machine
 
     if (result.recordset.length > 0) {
       const row = result.recordset[0];
-      // Utamakan IP dari ENV jika disetel, jika tidak gunakan dari DB
-      const resolvedIp = known[sid]?.ip || (row.IP ? String(row.IP).trim() : "");
+      const dbIp = row.IP ? String(row.IP).trim() : "";
+      const resolvedIp = dbIp || known[sid]?.ip || "";
       if (resolvedIp) {
         return {
           ip: resolvedIp,
           port: Number(row.Port) || Number(process.env.MACHINE_PORT) || 4370,
-          label: row.MachineAlias || `Sensor ${sid}`,
+          label: row.MachineAlias || known[sid]?.label || `Sensor ${sid}`,
         };
       }
     }
@@ -91,7 +86,7 @@ export async function getMachineInfo(sensorId: string | number): Promise<Machine
 
   return (
     known[sid] || {
-      ip: process.env.MACHINE_OFFICE_IP || process.env.MACHINE_4_IP || "192.168.1.244",
+      ip: process.env.MACHINE_1_IP || process.env.MACHINE_OFFICE_IP || "192.168.1.241",
       port: Number(process.env.MACHINE_PORT) || 4370,
       label: "ATT Office",
     }

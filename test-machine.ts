@@ -6,8 +6,8 @@ dotenv.config();
 const targetIp =
   process.argv[2] ||
   process.env.MACHINE_OFFICE_IP ||
-  process.env.MACHINE_4_IP ||
-  "192.168.1.244";
+  process.env.MACHINE_1_IP ||
+  "192.168.1.241";
 const targetPort =
   Number(process.argv[3]) ||
   Number(process.env.MACHINE_PORT) ||
@@ -26,22 +26,24 @@ async function runTest() {
     await zk.createSocket();
     console.log(`  -> Berhasil terhubung ke socket mesin!\n`);
 
-    console.log(`[2/3] Membaca data perangkat...`);
-    try {
-      const info = await zk.getInfo().catch(() => null);
-      if (info) {
-        if (info.userCounts !== undefined) console.log(`  -> Total User Terdaftar : ${info.userCounts}`);
-        if (info.logCounts !== undefined)  console.log(`  -> Total Log Presensi   : ${info.logCounts}`);
-      }
-    } catch (e) {
-      console.log(`  -> Info detail perangkat tidak dapat dibaca, tapi socket aktif.`);
-    }
-
-    console.log(`\n[3/3] Membunyikan suara ucapan "Terima Kasih" (CMD 1017)...`);
+    console.log(`[2/3] Membunyikan suara ucapan "Terima Kasih" (CMD 1017)...`);
     const data = Buffer.alloc(4);
     data.writeUInt32LE(0, 0); // Voice index 0 = "Terima Kasih"
     await zk.executeCmd(1017, data);
-    console.log(`  -> PERINTAH SUARA BERHASIL DIKIRIM! Dengarkan suara pada speaker mesin fisik.`);
+    console.log(`  -> PERINTAH SUARA BERHASIL DIKIRIM! Dengarkan suara pada speaker mesin fisik.\n`);
+
+    console.log(`[3/3] Membaca statistik perangkat...`);
+    try {
+      const info = await zk.getInfo().catch(() => null);
+      if (info && info.userCounts !== undefined) {
+        console.log(`  -> Total User Terdaftar : ${info.userCounts}`);
+        console.log(`  -> Total Log Presensi   : ${info.logCounts}`);
+      } else {
+        console.log(`  -> Info detail dilewati (kompatibel). Socket dan speaker aktif!`);
+      }
+    } catch (e) {
+      console.log(`  -> Info detail dilewati. Socket dan speaker aktif!`);
+    }
 
     console.log(`\n==============================================`);
     console.log(`STATUS: PENGUJIAN BERHASIL SEMPURNA!`);

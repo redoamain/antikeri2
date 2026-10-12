@@ -182,12 +182,12 @@ curl -X POST http://localhost:3289/api/sensors/test-voice \
 
 | ID Sensor | Nama / Alias | IP Default | Port | Serial Number | Model |
 | :---: | :--- | :--- | :---: | :--- | :---: |
-| **1** | ATT Admin | `192.168.1.241` | 4370 | A5NS190560046 | Solution X105-ID |
-| **2** | ATT 2 Injection | `192.168.1.242` | 4370 | A6G6212260014 | Solution X105-ID |
-| **3** | ATT 3 Belakang | `192.168.1.243` | 4370 | A5NS193460452 | Solution X105-ID |
-| **4** | ATT Office | `192.168.1.244` | 4370 | A6G6200360023 | Solution X105-ID |
-| **5** | ATT Assembly | `192.168.1.245` | 4370 | NHZ4244900223 | Solution X105-ID |
-| **6** | ATT 1 Security | `192.168.1.246` | 4370 | NHZ4244900678 | Solution X105-ID |
+| **1** | ATT - Office | `192.168.1.241` | 4370 | A5NS190560046 | Solution X105-ID |
+| **2** | X OFFLINE X | `192.168.1.242` | 4370 | A6G6212260014 | Solution X105-ID |
+| **3** | ATT - Spray | `192.168.1.243` | 4370 | A5NS193460452 | Solution X105-ID |
+| **4** | ATT - Injection | `192.168.1.244` | 4370 | A6G6200360023 | Solution X105-ID |
+| **5** | ATT - Assembly | `192.168.1.245` | 4370 | NHZ4244900223 | Solution X105-ID |
+| **6** | ATT - Security | `192.168.1.246` | 4370 | NHZ4244900678 | Solution X105-ID |
 
 ---
 

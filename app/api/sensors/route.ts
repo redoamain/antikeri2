@@ -57,27 +57,29 @@ export async function GET(request: Request) {
         };
       });
     } catch {
-      // Fallback jika struktur Machines berbeda
+      // Fallback jika koneksi database gagal
       machinesList = [
-        { SENSORID: "4", sn: "A6G6200360023", label: "ATT Office" },
+        { SENSORID: "1", sn: "A5NS190560046", label: "ATT Office" },
+        { SENSORID: "4", sn: "A6G6200360023", label: "ATT Injection" },
         { SENSORID: "6", sn: "NHZ4244900678", label: "ATT Security" },
-        { SENSORID: "1", sn: "A5NS190560046", label: "ATT Admin" },
-        { SENSORID: "2", sn: "A6G6212260014", label: "ATT 2 Injection" },
-        { SENSORID: "3", sn: "A5NS193460452", label: "ATT 3 Belakang" },
+        { SENSORID: "3", sn: "A5NS193460452", label: "ATT Spray" },
         { SENSORID: "5", sn: "NHZ4244900223", label: "ATT Assembly" },
+        { SENSORID: "2", sn: "A6G6212260014", label: "X OFFLINE X" },
       ];
     }
 
     // Jika list mesin kosong, sediakan fallback sensor default
     if (machinesList.length === 0) {
       machinesList = [
-        { SENSORID: "4", sn: "A6G6200360023", label: "ATT Office" },
+        { SENSORID: "1", sn: "A5NS190560046", label: "ATT Office" },
+        { SENSORID: "4", sn: "A6G6200360023", label: "ATT Injection" },
         { SENSORID: "6", sn: "NHZ4244900678", label: "ATT Security" },
       ];
     }
 
     const defaultSensor =
-      machinesList.find((m) => m.SENSORID === "4") ||
+      machinesList.find((m) => m.label?.toLowerCase().includes("office")) ||
+      machinesList.find((m) => m.SENSORID === "1") ||
       frequentSensor ||
       machinesList[0];
 
@@ -91,12 +93,13 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         userId: "8597",
-        frequentSensor: { SENSORID: "4", sn: "A6G6200360023", label: "ATT Office" },
+        frequentSensor: { SENSORID: "1", sn: "A5NS190560046", label: "ATT Office" },
         machines: [
-          { SENSORID: "4", sn: "A6G6200360023", label: "ATT Office" },
+          { SENSORID: "1", sn: "A5NS190560046", label: "ATT Office" },
+          { SENSORID: "4", sn: "A6G6200360023", label: "ATT Injection" },
           { SENSORID: "6", sn: "NHZ4244900678", label: "ATT Security" },
-          { SENSORID: "1", sn: "A5NS190560046", label: "ATT Admin" },
-          { SENSORID: "2", sn: "A6G6212260014", label: "ATT 2 Injection" },
+          { SENSORID: "3", sn: "A5NS193460452", label: "ATT Spray" },
+          { SENSORID: "5", sn: "NHZ4244900223", label: "ATT Assembly" },
         ],
       },
       { status: 200 }
