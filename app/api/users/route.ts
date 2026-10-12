@@ -80,7 +80,7 @@ function getValidLocations(): { name: string; lat: number; lng: number; radius: 
       name: "Pabrik PT. Citi Plumb",
       lat: -7.1043177,
       lng: 112.3820146,
-      radius: 100,
+      radius: 500,
     },
   ];
 }
@@ -168,7 +168,7 @@ export async function POST(request: Request) {
       if (!isInside) {
         return NextResponse.json(
           {
-            error: `Di luar area PT. Citi Plumb. Jarak terdekat: ${minDistance} meter (maksimal radius 100 meter).`,
+            error: `Di luar area PT. Citi Plumb. Jarak terdekat: ${minDistance} meter (maksimal radius ${allowedLocations[0]?.radius || 100} meter).`,
             distance: minDistance,
           },
           { status: 403 }

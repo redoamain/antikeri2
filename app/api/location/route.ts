@@ -37,7 +37,7 @@ function getStoredLocations(): LocationsData {
         name: "Pabrik PT. Citi Plumb",
         lat: -7.1043177,
         lng: 112.3820146,
-        radius: 100,
+        radius: 500,
       },
     ],
     bypassEnabled: false,
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
         name: "Ruang IT (Development)",
         lat,
         lng,
-        radius: 100,
+        radius: 500,
       });
     }
 

@@ -5,14 +5,14 @@
       "name": "PT. Citi Plumb",
       "lat": -7.0975488,
       "lng": 112.3876864,
-      "radius": 100
+      "radius": 500
     },
     {
       "id": "factory",
       "name": "PT. Citi Plumb",
       "lat": -7.1043177,
       "lng": 112.3820146,
-      "radius": 100
+      "radius": 500
     }
   ],
   "bypassEnabled": false

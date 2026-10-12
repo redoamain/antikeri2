@@ -169,14 +169,14 @@ const HomePage: React.FC = () => {
       name: "PT. Citi Plumb",
       lat: -7.0975488,
       lng: 112.3876864,
-      radius: 100,
+      radius: 500,
     },
     {
       id: "factory",
       name: "PT. Citi Plumb",
       lat: -7.1043177,
       lng: 112.3820146,
-      radius: 100,
+      radius: 500,
     },
   ]);
 
@@ -300,7 +300,7 @@ const HomePage: React.FC = () => {
 
         if (!evalRes.isInside) {
           toast.error(
-            `Di luar area PT. Citi Plumb (Jarak: ${evalRes.distance}m, maks: 100m)`
+            `Di luar area PT. Citi Plumb (Jarak: ${evalRes.distance}m, maks: ${currentLocs[0]?.radius || 100}m)`
           );
         } else {
           toast.success(
@@ -467,7 +467,7 @@ const HomePage: React.FC = () => {
 
     if (!geo.isInside || geo.latitude === null || geo.longitude === null) {
       toast.error(
-        "Absen ditolak: Anda harus berada di area PT. Citi Plumb (Maksimal radius 100 meter)."
+        `Absen ditolak: Anda harus berada di area PT. Citi Plumb (Maksimal radius ${locations[0]?.radius || 100} meter).`
       );
       return;
     }
@@ -774,7 +774,7 @@ const HomePage: React.FC = () => {
                         </span>
                       </div>
                       <span className="text-[11px] text-emerald-600 dark:text-emerald-500">
-                        Jarak: ~{geo.distance}m (Maks. 100m)
+                        Jarak: ~{geo.distance}m (Maks. {locations[0]?.radius || 100}m)
                       </span>
                     </div>
                   ) : (
@@ -799,7 +799,12 @@ const HomePage: React.FC = () => {
                         {geo.distance !== null && geo.distance >= 1000
                           ? `${(geo.distance / 1000).toFixed(1)} km`
                           : `${geo.distance} meter`}{" "}
-                        (Maksimal radius: 100 meter)
+                        (Maksimal radius: {locations[0]?.radius || 100} meter)
+                        {geo.latitude !== null && geo.longitude !== null && (
+                          <span className="block text-[10px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">
+                            Koordinat Terdeteksi: {geo.latitude.toFixed(6)}, {geo.longitude.toFixed(6)}
+                          </span>
+                        )}
                       </span>
                     </div>
                   )}
