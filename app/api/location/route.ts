@@ -18,29 +18,50 @@ interface LocationsData {
 }
 
 function getStoredLocations(): LocationsData {
+  const envRadius =
+    Number(process.env.GEOFENCE_RADIUS || process.env.LOCATION_RADIUS) || null;
+  let rawLocations: LocationItem[] = [];
+  let bypassEnabled = false;
+
   try {
     if (fs.existsSync(LOCATIONS_FILE)) {
       const content = fs.readFileSync(LOCATIONS_FILE, "utf-8");
       const parsed = JSON.parse(content);
-      return {
-        locations: Array.isArray(parsed.locations) ? parsed.locations : [],
-        bypassEnabled: Boolean(parsed.bypassEnabled),
-      };
+      rawLocations = Array.isArray(parsed.locations) ? parsed.locations : [];
+      bypassEnabled = Boolean(parsed.bypassEnabled);
     }
   } catch (err) {
     console.error("Failed to read locations.json:", err);
   }
-  return {
-    locations: [
+
+  if (rawLocations.length === 0) {
+    rawLocations = [
+      {
+        id: "office",
+        name: "PT. Citi Plumb",
+        lat: -7.0975488,
+        lng: 112.3876864,
+        radius: envRadius || 500,
+      },
       {
         id: "factory",
         name: "Pabrik PT. Citi Plumb",
         lat: -7.1043177,
         lng: 112.3820146,
-        radius: 500,
+        radius: envRadius || 500,
       },
-    ],
-    bypassEnabled: false,
+    ];
+  }
+
+  // Jika radius disetel di ENV, terapkan ke semua titik lokasi
+  const finalLocations = rawLocations.map((loc) => ({
+    ...loc,
+    radius: envRadius && envRadius > 0 ? envRadius : (loc.radius || 500),
+  }));
+
+  return {
+    locations: finalLocations,
+    bypassEnabled,
   };
 }
 
@@ -88,7 +109,8 @@ export async function POST(request: Request) {
         name: "Ruang IT (Development)",
         lat,
         lng,
-        radius: 500,
+        radius:
+          Number(process.env.GEOFENCE_RADIUS || process.env.LOCATION_RADIUS) || 500,
       });
     }
 

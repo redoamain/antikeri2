@@ -62,11 +62,15 @@ import path from "path";
 const LOCATIONS_FILE = path.join(process.cwd(), "lib", "locations.json");
 
 function getValidLocations(): { name: string; lat: number; lng: number; radius: number }[] {
+  const envRadius =
+    Number(process.env.GEOFENCE_RADIUS || process.env.LOCATION_RADIUS) || null;
+  let locs: { name: string; lat: number; lng: number; radius: number }[] = [];
+
   try {
     if (fs.existsSync(LOCATIONS_FILE)) {
       const data = JSON.parse(fs.readFileSync(LOCATIONS_FILE, "utf-8"));
       if (Array.isArray(data.locations)) {
-        return data.locations.filter(
+        locs = data.locations.filter(
           (l: { lat: unknown; lng: unknown }) =>
             typeof l.lat === "number" && typeof l.lng === "number"
         );
@@ -75,14 +79,22 @@ function getValidLocations(): { name: string; lat: number; lng: number; radius: 
   } catch (err) {
     console.error("Error reading locations:", err);
   }
-  return [
-    {
-      name: "Pabrik PT. Citi Plumb",
-      lat: -7.1043177,
-      lng: 112.3820146,
-      radius: 500,
-    },
-  ];
+
+  if (locs.length === 0) {
+    locs = [
+      {
+        name: "Pabrik PT. Citi Plumb",
+        lat: -7.1043177,
+        lng: 112.3820146,
+        radius: 500,
+      },
+    ];
+  }
+
+  return locs.map((l) => ({
+    ...l,
+    radius: envRadius && envRadius > 0 ? envRadius : (l.radius || 500),
+  }));
 }
 
 function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
